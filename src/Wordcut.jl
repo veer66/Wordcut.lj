@@ -156,13 +156,11 @@ function build_path(dix::PrefixTree{Int32}, s::String)::Array{Link}
         while j <= length(dix_ptrs)
             dix_ptr::DixPtr = dix_ptrs[j]
             offset = i - dix_ptr.s + 1
-            println("CH = ", ch, " i = ", i, " j = ", j, " dix_ptr = ", dix_ptr, " offset = ", offset)
             child = lookup(dix, dix_ptr.row_no, offset, ch)
-            println("child = ", child)
             if isnothing(child)
                 if j == length(dix_ptrs)
                     j += 1
-                    pop!(dix_ptrs)                    
+                    pop!(dix_ptrs)                   
                 else
                     dix_ptrs[j] = dix_ptrs[length(dix_ptrs)]
                     pop!(dix_ptrs)
@@ -183,11 +181,9 @@ function build_path(dix::PrefixTree{Int32}, s::String)::Array{Link}
         end
         for transducer in transducers
             update(transducer, ch, i, s)
-            println("STATE = ", transducer.state)
             if transducer.state == completed
                 prev_link = path[transducer.s]
                 new_link = Link(transducer.s, prev_link.w + 1, prev_link.unk, transducer.link_kind, ch_i)
-                println("NEW = ", new_link, " OLD = ", link)
                 if isbetter(new_link, link)
                     link = new_link
                 end
@@ -199,7 +195,47 @@ function build_path(dix::PrefixTree{Int32}, s::String)::Array{Link}
     return path
 end
 
-dix1 = Wordcut.make_prefix_tree([("กา", Int32(10)), ("กาม", Int32(20))])
-println(build_path(dix1, "A"))
 
+struct Range
+    s::Int64
+    e::Int64
+    ch_s::Int64
+    ch_e::Int64
+end
+
+function path_to_ranges(path::Array{Link}, str::String)::Array{Range}
+    if length(path) < 2
+        return []
+    end
+    e = length(path)
+    ranges = []
+    while e > 1
+        link = path[e]
+        s = link.p
+        p_link = path[s]
+        r = Range(s, e, nextind(str, p_link.ch_i), link.ch_i)
+        push!(ranges, r)
+        e = s
+    end
+    reverse!(ranges)
+    return ranges
+end
+
+function range_to_tok(range::Range, str::String)::String
+    return SubString(str, range.ch_s, range.ch_e) 
+end
+
+function ranges_to_toks(ranges::Array{Range}, str::String)::Array{String}
+    return map(r -> range_to_tok(r, str), ranges)
+end
+
+function tokenize(dix::PrefixTree{Int32}, str::String)::Array{String}
+    path = build_path(dix, str)
+    ranges = path_to_ranges(path, str)
+    return ranges_to_toks(ranges, str)
+end
+
+#dix1 = Wordcut.make_prefix_tree([("กา", Int32(10)), ("กาม", Int32(20))])
+#s1 = "กากา"
+#println(tokenize(dix1, s1))
 end # module

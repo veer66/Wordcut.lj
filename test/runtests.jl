@@ -25,4 +25,7 @@ using Test
     punc_transducer = Wordcut.PuncTransducer(0,0,Wordcut.waiting,Wordcut.punc)
     Wordcut.update(punc_transducer,' ', 1, " ")
     @test punc_transducer.state == Wordcut.completed
+
+    dix = Wordcut.make_prefix_tree([("กา", Int32(10)), ("กาม", Int32(20))])
+    @test Wordcut.tokenize(dix, "กากา") == ["กา", "กา"]
 end
