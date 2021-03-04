@@ -16,4 +16,9 @@ using Test
 
     dix = Wordcut.make_prefix_tree([("กา", Int32(10)), ("กาม", Int32(20))])
     @test Wordcut.build_path(dix, "กา") == [Wordcut.Link(1,0,0,Wordcut.init), Wordcut.Link(1,1,1,Wordcut.unk), Wordcut.Link(1,1,0,Wordcut.dict)]
+    @test Wordcut.build_path(dix, "A") == [Wordcut.Link(1,0,0,Wordcut.init), Wordcut.Link(1,1,0,Wordcut.latin)]
+
+    latin_transducer = Wordcut.LatinTransducer(0,0,Wordcut.waiting,Wordcut.latin)
+    Wordcut.update(latin_transducer,'A', 1, "A")
+    @test latin_transducer.state == Wordcut.completed
 end

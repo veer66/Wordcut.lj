@@ -88,6 +88,10 @@ function update(t::LatinTransducer, ch::Char, i::Int64, s::String)
         if islatin(ch)
             t.s = i
             t.state = activated
+            if i == length(s) || !islatin(s[i + 1])
+                t.e = i
+                t.state = completed
+            end
         end
     else
         if islatin(ch)
@@ -172,9 +176,11 @@ function build_path(dix::PrefixTree{Int32}, s::String)::Array{Link}
         end
         for transducer in transducers
             update(transducer, ch, i, s)
+            println("STATE = ", transducer.state)
             if transducer.state == completed
                 prev_link = path[transducer.s]
                 new_link = Link(transducer.s, prev_link.w + 1, prev_link.unk, transducer.link_kind)
+                println("NEW = ", new_link, " OLD = ", link)
                 if isbetter(new_link, link)
                     link = new_link
                 end
@@ -187,6 +193,6 @@ function build_path(dix::PrefixTree{Int32}, s::String)::Array{Link}
 end
 
 dix1 = Wordcut.make_prefix_tree([("กา", Int32(10)), ("กาม", Int32(20))])
-println(build_path(dix1, "กาA"))
+println(build_path(dix1, "A"))
 
 end # module
