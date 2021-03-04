@@ -56,6 +56,7 @@ struct Link
     w::Int64
     unk::Int64
     kind::LinkKind
+    ch_i::Int64
 end
 
 function isbetter(l::Link, r::Link)::Bool
@@ -116,10 +117,15 @@ function update(t::PuncTransducer, ch::Char, i::Int64, s::String)
     if t.state == waiting
         if ch == ' '
             t.s = i
+            t.state = activated
+            if length(s) == i || s[i + 1] != " "
+                t.e = i
+                t.state = completed
+            end            
         end
     else
         if ch == ' '
-            if length(s) == i && s[i + 1] != " "
+            if length(s) == i || s[i + 1] != " "
                 t.e = i
                 t.state = completed
             end
@@ -138,12 +144,13 @@ end
 function build_path(dix::PrefixTree{Int32}, s::String)::Array{Link}
     transducers = [PuncTransducer(0,0,waiting,punc),LatinTransducer(0,0,waiting,latin)]
     left_boundary = 1
-    path::Array{Link} = [Link(1,0,0,init)]
+    path::Array{Link} = [Link(1,0,0,init,0)]
     dix_ptrs::Array{DixPtr} = []
     i = 1
-    for ch in s
+    for ch_i in eachindex(s)
+        ch = s[ch_i]
         unk_link = path[left_boundary]
-        link::Link = Link(left_boundary, unk_link.w + 1, unk_link.unk + 1, unk)        
+        link::Link = Link(left_boundary, unk_link.w + 1, unk_link.unk + 1, unk, ch_i)
         push!(dix_ptrs, DixPtr(i, 1, false))
         j = 1        
         while j <= length(dix_ptrs)
@@ -167,7 +174,7 @@ function build_path(dix::PrefixTree{Int32}, s::String)::Array{Link}
             for dix_ptr in dix_ptrs
                 if dix_ptr.isfinal
                     dix_link = path[dix_ptr.s]
-                     new_link = Link(dix_ptr.s, dix_link.w + 1, dix_link.unk, dict)
+                     new_link = Link(dix_ptr.s, dix_link.w + 1, dix_link.unk, dict, ch_i)
                      if isbetter(new_link, link)
                          link = new_link
                      end
@@ -179,7 +186,7 @@ function build_path(dix::PrefixTree{Int32}, s::String)::Array{Link}
             println("STATE = ", transducer.state)
             if transducer.state == completed
                 prev_link = path[transducer.s]
-                new_link = Link(transducer.s, prev_link.w + 1, prev_link.unk, transducer.link_kind)
+                new_link = Link(transducer.s, prev_link.w + 1, prev_link.unk, transducer.link_kind, ch_i)
                 println("NEW = ", new_link, " OLD = ", link)
                 if isbetter(new_link, link)
                     link = new_link
