@@ -72,10 +72,11 @@ end
 
 @enum TransducerState waiting=1 activated=2 completed=3
 
-struct LatinTransducer
+mutable struct LatinTransducer
     s::Int64
     e::Int64
     state::TransducerState
+    link_kind::LinkKind
 end
 
 @inline function islatin(ch::Char)
@@ -100,19 +101,11 @@ function update(t::LatinTransducer, ch::Char, i::Int64, s::String)
     end
 end
 
-function create_link(t::LatinTransducer, path::Array{Link})::Union{Nothing, Link}
-    if t.state == completed
-        p_link = path[t.s]
-        return Link(t.s, p_link.w + 1, p_link.unk, latin)
-    else
-        return nothing
-    end
-end
-
-struct PuncTransducer
+mutable struct PuncTransducer
     s::Int64
     e::Int64
     state::TransducerState
+    link_kind::LinkKind
 end
 
 function update(t::PuncTransducer, ch::Char, i::Int64, s::String)
@@ -132,14 +125,6 @@ function update(t::PuncTransducer, ch::Char, i::Int64, s::String)
     end
 end
 
-function create_link(t::PuncTransducer, path::Array{Link})::Union{Nothing, Link}
-    if t.state == completed
-        p_link = path[t.i]
-        return Link{t.i, p_link.w + 1, p_link.unk, punc}
-    end
-    return nothing
-end
-
 struct DixPtr
     s::Int64
     row_no::Int64
@@ -147,14 +132,14 @@ struct DixPtr
 end
 
 function build_path(dix::PrefixTree{Int32}, s::String)::Array{Link}
+    transducers = [PuncTransducer(0,0,waiting,punc),LatinTransducer(0,0,waiting,latin)]
     left_boundary = 1
     path::Array{Link} = [Link(1,0,0,init)]
     dix_ptrs::Array{DixPtr} = []
     i = 1
     for ch in s
         unk_link = path[left_boundary]
-        link::Link = Link(left_boundary, unk_link.w + 1, unk_link.unk + 1, unk)
-        
+        link::Link = Link(left_boundary, unk_link.w + 1, unk_link.unk + 1, unk)        
         push!(dix_ptrs, DixPtr(i, 1, false))
         j = 1        
         while j <= length(dix_ptrs)
@@ -185,6 +170,16 @@ function build_path(dix::PrefixTree{Int32}, s::String)::Array{Link}
                 end
             end
         end
+        for transducer in transducers
+            update(transducer, ch, i, s)
+            if transducer.state == completed
+                prev_link = path[transducer.s]
+                new_link = Link(transducer.s, prev_link.w + 1, prev_link.unk, transducer.link_kind)
+                if isbetter(new_link, link)
+                    link = new_link
+                end
+            end
+        end
         push!(path, link)
         i += 1
     end
@@ -192,6 +187,6 @@ function build_path(dix::PrefixTree{Int32}, s::String)::Array{Link}
 end
 
 dix1 = Wordcut.make_prefix_tree([("กา", Int32(10)), ("กาม", Int32(20))])
-println(build_path(dix1, "กา"))
+println(build_path(dix1, "กาA"))
 
 end # module
